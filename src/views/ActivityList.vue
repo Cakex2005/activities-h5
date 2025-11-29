@@ -47,10 +47,11 @@
                   <span>{{ formatTime(activity.startTime) }}</span>
                 </div>
 
-                <div class="footer">
-                  <van-tag v-if="activity.activityStatus === 1" type="success">报名中</van-tag>
-                  <van-tag v-else-if="activity.activityStatus === 2" type="warning">报名结束</van-tag>
-                  <van-tag v-else-if="activity.activityStatus === 3" type="primary">进行中</van-tag>
+                  <div class="footer">
+                  <van-tag v-if="activity._displayStatus === 'registering'" type="success">报名中</van-tag>
+                  <van-tag v-else-if="activity._displayStatus === 'notStarted'" type="warning">未开始报名</van-tag>
+                  <van-tag v-else-if="activity._displayStatus === 'ended'" type="warning">报名结束</van-tag>
+                  <van-tag v-else-if="activity._displayStatus === 'inProgress'" type="primary">进行中</van-tag>
                   <van-tag v-else type="default">已结束</van-tag>
 
                   <span class="count">{{ activity.currentRegistrationCount || 0 }} / {{ activity.maxParticipants || '不限' }}</span>
@@ -65,7 +66,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NavBar, Icon, PullRefresh, List, Empty, Image as VanImage, Tag, showToast } from 'vant'
 import { getPublicActivities } from '@/api/student'
@@ -78,15 +79,48 @@ const finished = ref(false)
 const refreshing = ref(false)
 const pageNum = ref(1)
 const pageSize = 10 // 每页10个，配合每行2个，刚好5行
+const now = ref(new Date())
+let timer = null
+
+const updateStatuses = () => {
+  now.value = new Date()
+  activities.value.forEach(activity => {
+    // 默认状态
+    let status = 'ended'
+    if (activity.activityStatus === 3) status = 'inProgress'
+    else if (activity.activityStatus === 2) status = 'ended'
+    else if (activity.activityStatus === 1) {
+      const regStartTime = new Date(activity.registrationStartTime)
+      if (now.value < regStartTime) {
+        status = 'notStarted'
+      } else {
+        status = 'registering'
+      }
+    }
+    // 只有当状态改变时才更新，避免不必要的渲染（虽然Vue会自动处理）
+    if (activity._displayStatus !== status) {
+      activity._displayStatus = status
+    }
+  })
+}
+
+onMounted(() => {
+  // 每分钟更新一次状态
+  timer = setInterval(updateStatuses, 60000)
+})
+
+onUnmounted(() => {
+  if (timer) clearInterval(timer)
+})
 
 const onLoad = async () => {
   try {
-    // 同时加载报名中、进行中和报名结束的活动
+    // 同时加载报名中、进行中、报名结束的活动
     const [res1, res3, res2] = await Promise.all([
       getPublicActivities({
         pageNum: pageNum.value,
         pageSize,
-        activityStatus: 1 // 报名中的活动
+        activityStatus: 1 // 报名中的活动（包含未开始报名的）
       }),
       getPublicActivities({
         pageNum: pageNum.value,
@@ -101,25 +135,43 @@ const onLoad = async () => {
     ])
     
     let newData = []
+    const currentTime = new Date()
+    
+    // 处理状态1的活动，根据时间判断是否真正开始报名
     if (res1.code === 200) {
-      newData = newData.concat(res1.data.list || [])
+      const registering = (res1.data.list || []).map(activity => {
+        const regStartTime = new Date(activity.registrationStartTime)
+        // 如果当前时间 < 报名开始时间，标记为"未开始报名"
+        let displayStatus = 'registering'
+        if (currentTime < regStartTime) {
+          displayStatus = 'notStarted'
+        }
+        return { ...activity, _displayStatus: displayStatus }
+      })
+      newData = newData.concat(registering)
     }
+    
     if (res3.code === 200) {
-      newData = newData.concat(res3.data.list || [])
+      newData = newData.concat((res3.data.list || []).map(a => ({ ...a, _displayStatus: 'inProgress' })))
     }
     if (res2.code === 200) {
-      newData = newData.concat(res2.data.list || [])
+      newData = newData.concat((res2.data.list || []).map(a => ({ ...a, _displayStatus: 'ended' })))
     }
     
-    // 排序逻辑：进行中(3) > 报名中(1) > 报名结束(2)，内部按开始时间倒序
-    const statusOrder = { 3: 0, 1: 1, 2: 2 }
+    // 排序逻辑：进行中 > 报名中（真正开始） > 未开始报名 > 报名结束，内部按开始时间倒序
+    const statusOrder = { 
+      inProgress: 0,      // 进行中
+      registering: 1,     // 报名中（已开始）
+      notStarted: 2,      // 未开始报名
+      ended: 3            // 报名结束
+    }
     
     newData.sort((a, b) => {
-      const orderA = statusOrder[a.activityStatus] ?? 99
-      const orderB = statusOrder[b.activityStatus] ?? 99
+      const orderA = statusOrder[a._displayStatus] ?? 99
+      const orderB = statusOrder[b._displayStatus] ?? 99
       
       if (orderA !== orderB) {
-        return orderA - orderB // 升序排列：0(进行中) -> 1(报名中) -> 2(报名结束)
+        return orderA - orderB
       }
       return new Date(b.startTime) - new Date(a.startTime)
     })
@@ -132,7 +184,6 @@ const onLoad = async () => {
     
     loading.value = false
     // 如果所有状态的数据都少于pageSize，说明没有更多了
-    // 注意：这种分页方式在数据量大时会有问题（重复加载），但在当前需求下是可接受的妥协
     const hasMore = (res1.data?.list?.length || 0) >= pageSize || 
                     (res3.data?.list?.length || 0) >= pageSize ||
                     (res2.data?.list?.length || 0) >= pageSize
