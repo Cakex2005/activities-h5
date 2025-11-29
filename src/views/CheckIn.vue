@@ -57,7 +57,7 @@ const handleCheckIn = async () => {
     
     if (res.code === 200) {
       showSuccessToast('签到成功!')
-      setTimeout(() => router.push('/my'), 1500)
+      setTimeout(() => router.back(), 1500)
     }
   } catch (error) {
     // 错误已在拦截器中处理
@@ -71,8 +71,14 @@ const goBack = () => {
 
 <style scoped>
 .checkin {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   background-color: #f7f8fa;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .content {

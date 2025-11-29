@@ -104,15 +104,9 @@ const handleRegister = async () => {
     })
     
     if (res.code === 200) {
-      // 保存学生信息到本地,方便后续查询
-      localStorage.setItem('studentInfo', JSON.stringify({
-        name: registerForm.value.studentName,
-        phone: registerForm.value.studentPhone
-      }))
-      
       showSuccessToast('报名成功!')
       registerVisible.value = false
-      setTimeout(() => router.push('/my'), 1500)
+      setTimeout(() => router.push('/activities'), 1500)
     }
   } catch (error) {
     // 错误已在拦截器中处理
@@ -145,9 +139,15 @@ const getStatusText = (status) => {
 
 <style scoped>
 .activity-detail {
-  min-height: 100vh;
+  height: 100vh;
+  width: 100vw;
   background-color: #f7f8fa;
   padding-bottom: 70px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .content {
