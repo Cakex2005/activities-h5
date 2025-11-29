@@ -86,6 +86,13 @@ const handleSearch = async () => {
     return
   }
 
+  // 手机号格式校验：第一位是1，第二位是3-9，后面9位是0-9
+  const phoneRegex = /^1[3-9]\d{9}$/
+  if (!phoneRegex.test(form.value.studentPhone)) {
+    showToast('请输入正确的手机号格式')
+    return
+  }
+
   loading.value = true
   hasSearched.value = true
   registrations.value = []
