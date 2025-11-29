@@ -4,20 +4,38 @@
 
     <div class="content">
       <div class="checkin-card">
-        <van-icon name="success" size="60" color="#07c160" />
-        <h2>扫码签到</h2>
-        <p>请使用相机扫描签到二维码</p>
-
-        <van-divider>或</van-divider>
+        <!-- 扫码成功显示活动信息 -->
+        <div v-if="activityInfo" class="activity-info">
+          <van-icon name="success" size="60" color="#07c160" />
+          <h3>{{ activityInfo.activityName }}</h3>
+          <p class="info-text">
+            <van-icon name="clock-o" /> {{ formatTime(activityInfo.startTime) }}
+          </p>
+          <p class="info-text">
+            <van-icon name="location-o" /> {{ activityInfo.location }}
+          </p>
+          <van-divider />
+        </div>
+        
+        <div v-else>
+          <van-icon name="scan" size="60" color="#1989fa" />
+          <h2>活动签到</h2>
+          <p>请输入活动ID和手机号进行签到</p>
+          <van-divider />
+        </div>
 
         <van-form @submit="handleCheckIn">
+          <!-- 扫码模式下隐藏活动ID输入框 -->
           <van-field
+            v-if="!isScanMode"
             v-model="checkInForm.activityId"
             label="活动ID"
             placeholder="请输入活动ID"
             type="number"
             required
+            :disabled="isActivityIdFixed"
           />
+          
           <van-field
             v-model="checkInForm.studentPhone"
             label="手机号"
@@ -27,7 +45,13 @@
           />
           
           <div style="margin: 16px;">
-            <van-button round block type="primary" native-type="submit">
+            <van-button 
+              round 
+              block 
+              type="primary" 
+              native-type="submit"
+              :loading="loading"
+            >
               立即签到
             </van-button>
           </div>
@@ -38,34 +62,132 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { NavBar, Icon, Divider, Form, Field, Button, showSuccessToast, showToast } from 'vant'
-import { checkIn } from '@/api/student'
+import { NavBar, Icon, Divider, Form, Field, Button, showSuccessToast, showToast, showLoadingToast, closeToast } from 'vant'
+import { checkIn, validateCheckInToken, checkInByToken, getActivityDetail } from '@/api/student'
 
 const router = useRouter()
 const route = useRoute()
 
+const loading = ref(false)
+const activityInfo = ref(null)
+const isScanMode = ref(false)
+
 const checkInForm = ref({
-  activityId: route.query.activityId || '',
-  studentPhone: ''
+  activityId: '',
+  studentPhone: '',
+  checkInToken: ''
 })
 
-const handleCheckIn = async () => {
+const isActivityIdFixed = computed(() => isScanMode.value || !!route.query.activityId)
+
+onMounted(async () => {
+  const token = route.query.token
+  const qActivityId = route.query.activityId
+  
+  console.log('[签到页面] 访问来源:', window.location.href)
+  console.log('[签到页面] hostname:', window.location.hostname)
+  console.log('[签到页面] token:', token)
+  console.log('[签到页面] activityId:', qActivityId)
+  
+  if (token) {
+    // 扫码模式
+    isScanMode.value = true
+    checkInForm.value.checkInToken = token
+    await validateToken(token)
+  } else if (qActivityId) {
+    // 普通链接带参数模式
+    checkInForm.value.activityId = qActivityId
+    await loadActivityInfo(qActivityId)
+  }
+})
+
+const validateToken = async (token) => {
+  showLoadingToast({ message: '验证中...', forbidClick: true })
   try {
-    const res = await checkIn(checkInForm.value)
+    console.log('[验证Token] 开始验证...')
+    const res = await validateCheckInToken(token)
+    console.log('[验证Token] 响应:', res)
     
     if (res.code === 200) {
-      showSuccessToast('签到成功!')
-      setTimeout(() => router.back(), 1500)
+      const activityId = res.data.activityId
+      checkInForm.value.activityId = activityId
+      // 获取活动详情用于展示
+      await loadActivityInfo(activityId)
+      closeToast()
+    } else {
+      showToast(res.message || '二维码无效')
     }
   } catch (error) {
-    // 错误已在拦截器中处理
+    console.error('[验证Token] 失败:', error)
+    showToast('验证失败')
+  }
+}
+
+const loadActivityInfo = async (id) => {
+  try {
+    const res = await getActivityDetail(id)
+    if (res.code === 200) {
+      activityInfo.value = res.data
+    }
+  } catch (error) {
+    console.error('加载活动信息失败', error)
+  }
+}
+
+const handleCheckIn = async () => {
+  if (!checkInForm.value.studentPhone) {
+    showToast('请输入手机号')
+    return
+  }
+
+  loading.value = true
+  try {
+    let res
+    console.log('[签到] 模式:', isScanMode.value ? '扫码签到' : '普通签到')
+    console.log('[签到] 表单数据:', checkInForm.value)
+    
+    if (isScanMode.value && checkInForm.value.checkInToken) {
+      // 扫码签到
+      res = await checkInByToken({
+        checkInToken: checkInForm.value.checkInToken,
+        studentPhone: checkInForm.value.studentPhone
+      })
+    } else {
+      // 普通签到
+      res = await checkIn({
+        activityId: checkInForm.value.activityId,
+        studentPhone: checkInForm.value.studentPhone
+      })
+    }
+
+    console.log('[签到] 响应:', res)
+
+    if (res.code === 200) {
+      showSuccessToast('签到成功')
+      setTimeout(() => {
+        // 跳转到我的报名列表查看状态
+        router.push('/activities')
+      }, 1500)
+    } else {
+      showToast(res.message || '签到失败')
+    }
+  } catch (error) {
+    console.error('[签到] 失败:', error)
+    showToast('签到失败: ' + (error.message || '未知错误'))
+  } finally {
+    loading.value = false
   }
 }
 
 const goBack = () => {
   router.back()
+}
+
+const formatTime = (timeStr) => {
+  if (!timeStr) return ''
+  return timeStr.replace('T', ' ').substring(0, 16)
 }
 </script>
 
@@ -100,9 +222,23 @@ const goBack = () => {
   color: #323233;
 }
 
+.checkin-card h3 {
+  margin: 10px 0;
+  font-size: 18px;
+  color: #323233;
+}
+
 .checkin-card p {
   color: #969799;
   font-size: 14px;
   margin-bottom: 20px;
+}
+
+.info-text {
+  margin: 5px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
 }
 </style>

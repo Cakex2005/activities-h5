@@ -65,3 +65,25 @@ export function getStudentRegistrationRecords(params) {
         params
     })
 }
+
+/**
+ * 验证签到Token
+ */
+export function validateCheckInToken(token) {
+    return request({
+        url: '/h5/checkin/validate',
+        method: 'get',
+        params: { token }
+    })
+}
+
+/**
+ * 扫码签到 (通过Token)
+ */
+export function checkInByToken(data) {
+    return request({
+        url: '/h5/checkin',
+        method: 'post',
+        data
+    })
+}
