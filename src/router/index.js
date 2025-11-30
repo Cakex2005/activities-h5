@@ -20,6 +20,12 @@ const router = createRouter({
             meta: { title: '活动详情' }
         },
         {
+            path: '/activity/:id/register',
+            name: 'activity-register',
+            component: () => import('@/views/ActivityRegister.vue'),
+            meta: { title: '活动报名' }
+        },
+        {
             path: '/query',
             name: 'query',
             component: () => import('@/views/QueryRegistration.vue'),
