@@ -130,9 +130,28 @@ const loadActivityInfo = async (id) => {
     const res = await getActivityDetail(id)
     if (res.code === 200) {
       activityInfo.value = res.data
+      checkCheckInTime()
     }
   } catch (error) {
     console.error('加载活动信息失败', error)
+  }
+}
+
+const checkCheckInTime = () => {
+  if (!activityInfo.value) return
+  
+  const now = new Date()
+  const startTime = new Date(activityInfo.value.startTime)
+  const endTime = new Date(activityInfo.value.endTime)
+  
+  // 签到时间范围：活动开始前半小时 ~ 活动结束一小时
+  const checkInStart = new Date(startTime.getTime() - 30 * 60 * 1000)
+  const checkInEnd = new Date(endTime.getTime() + 60 * 60 * 1000)
+  
+  if (now < checkInStart) {
+    showToast(`签到尚未开始。签到时间：${formatTime(checkInStart.toISOString())} - ${formatTime(checkInEnd.toISOString())}`)
+  } else if (now > checkInEnd) {
+    showToast(`签到已结束。签到时间：${formatTime(checkInStart.toISOString())} - ${formatTime(checkInEnd.toISOString())}`)
   }
 }
 

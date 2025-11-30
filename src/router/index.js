@@ -30,6 +30,18 @@ const router = createRouter({
             name: 'checkin',
             component: () => import('@/views/CheckIn.vue'),
             meta: { title: '签到' }
+        },
+        {
+            path: '/h5/checkin/validate',
+            name: 'h5-checkin-validate',
+            component: () => import('@/views/ValidateCheckIn.vue'),
+            meta: { title: '扫码签到' }
+        },
+        {
+            path: '/my-registrations',
+            name: 'my-registrations',
+            component: () => import('@/views/QueryRegistration.vue'),
+            meta: { title: '我的报名' }
         }
     ]
 })

@@ -30,8 +30,59 @@
     <van-loading v-else class="loading" />
 
     <div class="footer-bar" v-if="activity">
+      <!-- 如果从查询报名记录进入且已签到，显示已签到状态 -->
       <van-button 
-        v-if="activity.activityStatus === 1" 
+        v-if="hasRegistered && checkInStatus === 1"
+        type="success" 
+        block 
+        round
+        disabled
+        class="registered-btn"
+      >
+        ✓ 已成功签到
+      </van-button>
+
+      <!-- 如果从查询报名记录进入且报名成功（未签到），显示已报名状态 -->
+      <van-button 
+        v-else-if="hasRegistered && registrationStatus === 1"
+        type="success" 
+        block 
+        round
+        disabled
+        class="registered-btn"
+      >
+        ✓ 已成功报名
+      </van-button>
+      
+      <!-- 如果已取消报名，显示提示和再次报名按钮 -->
+      <template v-else-if="hasRegistered && registrationStatus === 2">
+        <div class="cancelled-hint">
+          <van-tag type="default">已取消报名</van-tag>
+        </div>
+        <van-button 
+          v-if="canRegister"
+          type="primary" 
+          block 
+          round
+          @click="showRegisterDialog"
+        >
+          再次报名
+        </van-button>
+        <van-button 
+          v-else
+          type="default" 
+          block 
+          round
+          disabled
+          class="disabled-btn"
+        >
+          {{ getButtonText }}
+        </van-button>
+      </template>
+      
+      <!-- 正常报名流程 -->
+      <van-button 
+        v-else-if="canRegister" 
         type="primary" 
         block 
         round
@@ -39,8 +90,16 @@
       >
         立即报名
       </van-button>
-      <van-button v-else type="default" block round disabled>
-        {{ getStatusText(activity.activityStatus) }}
+      
+      <van-button 
+        v-else 
+        type="default" 
+        block 
+        round 
+        disabled
+        class="disabled-btn"
+      >
+        {{ getButtonText }}
       </van-button>
     </div>
 
@@ -56,9 +115,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { NavBar, Image as VanImage, CellGroup, Cell, Button, Dialog, Field, Loading, showToast, showSuccessToast } from 'vant'
+import { NavBar, Image as VanImage, CellGroup, Cell, Button, Dialog, Field, Loading, showToast, showSuccessToast, Tag } from 'vant'
 import { getActivityDetail, registerActivity } from '@/api/student'
 
 const router = useRouter()
@@ -72,8 +131,61 @@ const registerForm = ref({
   studentCollege: ''
 })
 
+// 检查是否从查询报名记录进入（通过URL参数判断）
+const hasRegistered = computed(() => {
+  return route.query.registrationId !== undefined
+})
+
+const registrationStatus = computed(() => {
+  const status = route.query.registrationStatus
+  return status !== undefined && status !== null ? Number(status) : null
+})
+
+const checkInStatus = computed(() => {
+  const status = route.query.checkInStatus
+  return status !== undefined && status !== null ? Number(status) : null
+})
+
 onMounted(() => {
   loadDetail()
+})
+
+// 判断是否可以报名
+const canRegister = computed(() => {
+  if (!activity.value) return false
+  
+  // 首先判断活动状态必须是"报名中"
+  if (activity.value.activityStatus !== 1) return false
+  
+  // 然后判断当前时间是否在报名时间范围内
+  const now = new Date()
+  const regStart = new Date(activity.value.registrationStartTime)
+  const regEnd = new Date(activity.value.registrationEndTime)
+  
+  return now >= regStart && now <= regEnd
+})
+
+// 按钮文字
+const getButtonText = computed(() => {
+  if (!activity.value) return '加载中...'
+  
+  // 判断活动状态
+  if (activity.value.activityStatus !== 1) {
+    return getStatusText(activity.value.activityStatus)
+  }
+  
+  // 活动状态是"报名中"，但需要检查时间
+  const now = new Date()
+  const regStart = new Date(activity.value.registrationStartTime)
+  const regEnd = new Date(activity.value.registrationEndTime)
+  
+  if (now < regStart) {
+    return '未到报名时间'
+  } else if (now > regEnd) {
+    return '报名已结束'
+  }
+  
+  return '立即报名'
 })
 
 const loadDetail = async () => {
@@ -106,7 +218,19 @@ const handleRegister = async () => {
     if (res.code === 200) {
       showSuccessToast('报名成功!')
       registerVisible.value = false
-      setTimeout(() => router.push('/activities'), 1500)
+      
+      // 如果是从查询报名记录进入的，更新当前URL参数状态为已报名
+      if (hasRegistered.value) {
+        router.replace({
+          query: {
+            ...route.query,
+            registrationStatus: 1
+          }
+        })
+      } else {
+        // 否则跳转回活动列表
+        setTimeout(() => router.push('/activities'), 1500)
+      }
     }
   } catch (error) {
     // 错误已在拦截器中处理
@@ -204,4 +328,25 @@ const getStatusText = (status) => {
   padding: 12px 16px;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.08);
 }
+
+.cancelled-hint {
+  text-align: center;
+  margin-bottom: 8px;
+  color: #999;
+  font-size: 14px;
+}
+
+.disabled-btn {
+  background-color: #f7f8fa !important;
+  color: #c8c9cc !important;
+  cursor: not-allowed !important;
+}
+
+.registered-btn {
+  background-color: #e8f4e8 !important;
+  color: #07c160 !important;
+  cursor: not-allowed !important;
+  border: 1px solid #07c160 !important;
+}
+
 </style>

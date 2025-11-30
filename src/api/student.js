@@ -33,6 +33,16 @@ export function registerActivity(data) {
 }
 
 /**
+ * 取消报名
+ */
+export function cancelRegistration(registrationId) {
+    return request({
+        url: `/registration/cancel/${registrationId}`,
+        method: 'post'
+    })
+}
+
+/**
  * 学生签到
  */
 export function checkIn(data) {

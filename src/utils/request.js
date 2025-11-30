@@ -1,8 +1,25 @@
 import axios from 'axios'
 import { showToast } from 'vant'
 
+// 动态判断使用哪个baseURL
+function getBaseURL() {
+    const hostname = window.location.hostname
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1'
+    
+    if (isLocalhost) {
+        // 本地开发：使用代理
+        console.log('[请求配置] 使用开发代理: /api')
+        return '/api'
+    } else {
+        // 扫码访问（局域网IP）：直接请求后端
+        const backendUrl = `http://${hostname}:8080`
+        console.log('[请求配置] 使用局域网地址:', backendUrl)
+        return backendUrl
+    }
+}
+
 const request = axios.create({
-    baseURL: '/api',
+    baseURL: getBaseURL(),
     timeout: 10000
 })
 
