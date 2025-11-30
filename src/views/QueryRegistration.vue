@@ -74,7 +74,7 @@
               
               <!-- 取消报名按钮 -->
               <van-button 
-                v-if="reg.registrationStatus === 1 && canCancel(reg)"
+                v-if="reg.registrationStatus === 1 && reg.checkInStatus === 0 && canCancel(reg)"
                 type="warning" 
                 size="small"
                 block
@@ -275,7 +275,7 @@ const formatTime = (time) => {
 
 .content {
   padding-top: 46px;
-  padding-bottom: 20px;
+  padding-bottom: 80px; /* 增加底部留白，防止被浏览器底部工具栏遮挡 */
 }
 
 .search-box {
