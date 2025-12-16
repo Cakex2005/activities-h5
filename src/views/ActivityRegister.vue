@@ -6,7 +6,7 @@
       <!-- 活动海报 -->
       <van-image
         v-if="activity.posterUrl"
-        :src="activity.posterUrl"
+        :src="formatImageUrl(activity.posterUrl)"
         fit="cover"
         class="poster"
       />
@@ -89,6 +89,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { NavBar, Image as VanImage, CellGroup, Cell, Button, Form, Field, Loading, Empty, showToast, showSuccessToast } from 'vant'
 import { getActivityDetail, registerActivity } from '@/api/student'
+import { formatImageUrl } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()

@@ -20,7 +20,7 @@
             <div v-for="activity in activities" :key="activity.id" class="activity-card" @click="goToDetail(activity.id)">
               <van-image
                 v-if="activity.posterUrl"
-                :src="activity.posterUrl"
+                :src="formatImageUrl(activity.posterUrl)"
                 fit="cover"
                 class="poster"
               >
@@ -70,6 +70,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { NavBar, Icon, PullRefresh, List, Empty, Image as VanImage, Tag, showToast } from 'vant'
 import { getPublicActivities } from '@/api/student'
+import { formatImageUrl } from '@/utils/format'
 
 const router = useRouter()
 

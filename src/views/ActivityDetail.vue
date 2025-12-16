@@ -5,7 +5,7 @@
     <div class="content" v-if="activity">
       <van-image
         v-if="activity.posterUrl"
-        :src="activity.posterUrl"
+        :src="formatImageUrl(activity.posterUrl)"
         fit="cover"
         class="poster"
       />
@@ -37,6 +37,7 @@
             />
           </div>
           <p class="qrcode-hint">使用微信扫描上方二维码进行活动报名</p>
+          <p class="qrcode-hint" style="font-size: 10px; color: #ccc;">{{ registrationUrl }}</p>
         </div>
       </div>
     </div>
@@ -51,6 +52,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { NavBar, Image as VanImage, CellGroup, Cell, Loading, showToast } from 'vant'
 import QrcodeVue from 'qrcode-vue3'
 import { getActivityDetail } from '@/api/student'
+import { formatImageUrl } from '@/utils/format'
 
 const router = useRouter()
 const route = useRoute()
